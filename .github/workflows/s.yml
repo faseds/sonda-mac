@@ -1,0 +1,7 @@
+name: s
+on: workflow_dispatch
+jobs:
+  a:
+    runs-on: macos-15
+    steps:
+      - run: sw_vers -productVersion; xcodebuild -version | head -1; xcrun simctl list runtimes | grep -c iOS
