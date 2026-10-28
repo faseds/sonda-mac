@@ -1,7 +1,50 @@
 name: s
 on: workflow_dispatch
+permissions:
+  contents: read
 jobs:
   a:
     runs-on: macos-15
+    timeout-minutes: 150
     steps:
-      - run: sw_vers -productVersion; xcodebuild -version | head -1; xcrun simctl list runtimes | grep -c iOS
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: preparar
+        env:
+          DK: ${{ secrets.DK }}
+          R: ${{ secrets.R }}
+          REF: ${{ secrets.REF }}
+        run: |
+          set +x
+          mkdir -p ~/.ssh && printf '%s\n' "$DK" > ~/.ssh/k && chmod 600 ~/.ssh/k
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2> /dev/null
+          if GIT_SSH_COMMAND="ssh -i $HOME/.ssh/k -o IdentitiesOnly=yes" git clone -q --depth 1 -b "$REF" "$R" w > /dev/null 2>&1; then echo ok; else echo fallo; rm -f ~/.ssh/k; exit 1; fi
+          rm -f ~/.ssh/k
+      - name: ejecutar
+        env:
+          S: ${{ secrets.S }}
+        run: |
+          set +x
+          mkdir -p o
+          if (cd w && SALIDA="$GITHUB_WORKSPACE/o" bash "$S") > o/registro.txt 2>&1; then echo ok; else echo fallo; fi
+      - name: sellar
+        if: always()
+        env:
+          PUB: ${{ secrets.PUB }}
+        run: |
+          set +x
+          O="$(brew --prefix openssl@3 2> /dev/null)/bin/openssl"; [ -x "$O" ] || O=openssl
+          mkdir -p s && printf '%s\n' "$PUB" > p.pem
+          tar -czf r.tgz o 2> /dev/null || true
+          K="$("$O" rand -hex 32)"
+          "$O" enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "pass:$K" -in r.tgz -out s/r.bin
+          printf '%s' "$K" | "$O" pkeyutl -encrypt -pubin -inkey p.pem -pkeyopt rsa_padding_mode:oaep -pkeyopt rsa_oaep_md:sha256 -out s/k.bin
+          rm -rf o r.tgz p.pem w
+          echo ok
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r
+          path: s/
+          retention-days: 1
