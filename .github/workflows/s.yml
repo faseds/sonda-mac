@@ -24,6 +24,9 @@ jobs:
       - name: ejecutar
         env:
           S: ${{ secrets.S }}
+          ASC_P8_B64: ${{ secrets.ASC_P8_B64 }}
+          ASC_KID: ${{ secrets.ASC_KID }}
+          ASC_ISS: ${{ secrets.ASC_ISS }}
         run: |
           set +x
           mkdir -p o
